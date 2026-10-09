@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.14]
+
+- [#29](https://github.com/playwright-community/playwright-msteams-reporter/issues/29): Added a default value (`View failed tests`) for the `linkTextOnFailure` option, so `linkUrlOnFailure` works without it
+- [#30](https://github.com/playwright-community/playwright-msteams-reporter/issues/30): Added the `links` option to add multiple link buttons to the notification
+
 ## [0.0.13]
 
 - [#21](https://github.com/playwright-community/playwright-msteams-reporter/issues/21): Added the `mentionAuthors` option to mention commit/PR authors using Playwright's git metadata

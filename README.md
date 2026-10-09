@@ -95,7 +95,8 @@ The reporter supports the following configuration options:
 | `linkToResultsUrl`     | Link to the test results                                        | `string \| () => string` | `false`  | `undefined`                                    |
 | `linkToResultsText`    | Text for the link to the test results                           | `string`                 | `false`  | `View test results`                            |
 | `linkUrlOnFailure`     | Link to page where you can view, trigger, etc. the failed tests | `string \| () => string` | `false`  | `undefined`                                    |
-| `linkTextOnFailure`    | Text for the failed tests link action                           | `string`                 | `false`  | `undefined`                                    |
+| `linkTextOnFailure`    | Text for the failed tests link action                           | `string`                 | `false`  | `View failed tests`                            |
+| `links`                | Additional link buttons (`{ text, url }[]`)                     | `Link[]`                 | `false`  | `undefined`                                    |
 | `notifyOnSuccess`      | Notify on success                                               | `boolean`                | `false`  | `true`                                         |
 | `mentionOnFailure`     | Mention users on failure (comma separated list)                 | `string`                 | `false`  | `undefined`                                    |
 | `mentionOnFailureText` | Text to mention users on failure                                | `string`                 | `false`  | `{mentions} please validate the test results.` |
@@ -136,6 +137,28 @@ The format can be either the full name and email (`"Full name <email>"`) or just
 ### Link to the results
 
 With the `linkToResultsUrl` option, you can provide a link to the test results. For example, you can view the test results on your CI/CD platform.
+
+### Multiple links
+
+With the `links` option, you can add more buttons to the notification. Each link needs a `text` and a `url`; the `url` can be a string or a function that returns a string. The buttons appear after the `linkToResultsUrl` button. For example, you can link to the CI/CD run and to a published HTML report:
+
+```typescript
+{
+  links: [
+    {
+      text: "See test run",
+      url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    },
+    {
+      text: "See test report",
+      url: () => `https://<your-report-host>/${process.env.GITHUB_RUN_ID}/index.html`,
+    },
+  ],
+}
+```
+
+> [!NOTE]
+> The reporter does not publish the HTML report. Upload it to a location your team can open (for example, GitHub Pages or Azure Storage) and pass its URL.
 
 ### Conditional reporting (shouldRun)
 
