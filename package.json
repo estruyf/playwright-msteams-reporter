@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/playwright-community/playwright-msteams-reporter.git"
+    "url": "git+https://github.com/estruyf/playwright-msteams-reporter.git"
   },
   "funding": {
     "type": "github",
@@ -28,9 +28,9 @@
   "author": "Elio Struyf <elio@struyfconsulting.be>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/playwright-community/playwright-msteams-reporter/issues"
+    "url": "https://github.com/estruyf/playwright-msteams-reporter/issues"
   },
-  "homepage": "https://github.com/playwright-community/playwright-msteams-reporter#readme",
+  "homepage": "https://github.com/estruyf/playwright-msteams-reporter#readme",
   "devDependencies": {
     "@playwright/test": "^1.45.0",
     "@tsconfig/recommended": "^1.0.7",
