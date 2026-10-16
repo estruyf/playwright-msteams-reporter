@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Redact configured webhook URLs and their canonical URL forms from reporter logs without changing delivery.
+- Require `debug: true` for diagnostic dumps; `NODE_ENV=development` alone no longer enables them.
+
 ## [0.0.13]
 
 - [#21](https://github.com/playwright-community/playwright-msteams-reporter/issues/21): Added the `mentionAuthors` option to mention commit/PR authors using Playwright's git metadata

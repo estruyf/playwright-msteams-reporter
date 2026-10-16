@@ -100,12 +100,35 @@ The reporter supports the following configuration options:
 | `mentionOnFailure`     | Mention users on failure (comma separated list)                 | `string`                 | `false`  | `undefined`                                    |
 | `mentionOnFailureText` | Text to mention users on failure                                | `string`                 | `false`  | `{mentions} please validate the test results.` |
 | `enableEmoji`          | Show an emoji based on the test status                          | `boolean`                | `false`  | `false`                                        |
-| `quiet`                | Do not show any output in the console                           | `boolean`                | `false`  | `false`                                        |
+| `quiet`                | Suppress test output forwarding and success chatter             | `boolean`                | `false`  | `false`                                        |
 | `debug`                | Show debug information                                          | `boolean`                | `false`  | `false`                                        |
 | `shouldRun`            | Conditional reporting                                           | ` Suite => boolean`      | `false`  | `true`                                         |
 | `reportOnEmpty`        | Prevents sending a report when no tests are run                 | `boolean`                | `false`  | `false`                                        |
 | `enableDuration`       | Show the test run duration                                      | `boolean`                | `false`  | `false`                                        |
 | `mentionAuthors`       | Use git metadata to mention authors of the commit or PR         | `boolean`                | `false`  | `false`                                        |
+
+### Logging and privacy
+
+Diagnostic options and card dumps require `debug: true`. Setting
+`NODE_ENV=development` alone does not enable them.
+
+| Output | `quiet: false` | `quiet: true` |
+| --- | --- | --- |
+| Reporter startup banner | Shown | Shown |
+| Forwarded test stdout/stderr | Shown | Suppressed |
+| Success message and response text | Shown | Suppressed |
+| Failure diagnostics | Shown | Shown |
+| Options and card dumps | Only with `debug: true` | Only with `debug: true` |
+
+The configured webhook URL and its canonical `URL.href` form (including removal
+of default ports and hostname normalization) are replaced with `<redacted>` in diagnostic dumps,
+response text, and individual forwarded test-output chunks. The destination and
+delivered card are not modified. Matching also covers their JSON-string-escaped
+forms. This is not a general secret or PII filter: other encoded or partial URL
+forms, fragments split across output chunks,
+signed results links, and application-provided content require consumer-side
+sanitization. Other reporters and Playwright artifacts are outside this logging
+filter; avoid putting webhook secrets in published configuration artifacts.
 
 ### Mention users
 

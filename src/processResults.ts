@@ -9,6 +9,7 @@ import {
   getTotalStatus,
 } from "./utils";
 import { BaseAdaptiveCard, BaseTable } from "./constants";
+import { redactWebhookUrl } from "./utils/redactWebhookUrl";
 
 export const processResults = async (
   suite: Suite | undefined,
@@ -212,7 +213,7 @@ export const processResults = async (
 
   if (options.debug) {
     console.log("Sending the following message:");
-    console.log(body);
+    console.log(redactWebhookUrl(body, options.webhookUrl));
   }
 
   const response = await fetch(options.webhookUrl, {
@@ -228,11 +229,11 @@ export const processResults = async (
       console.log("Message sent successfully");
       const responseText = await response.text();
       if (responseText !== "1") {
-        console.log(responseText);
+        console.log(redactWebhookUrl(responseText, options.webhookUrl));
       }
     }
   } else {
     console.error("Failed to send message");
-    console.error(await response.text());
+    console.error(redactWebhookUrl(await response.text(), options.webhookUrl));
   }
 };

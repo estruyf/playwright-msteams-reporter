@@ -8,6 +8,7 @@ import type {
 } from "@playwright/test/reporter";
 import { processResults } from "./processResults";
 import { WebhookType } from "./models";
+import { redactWebhookUrl } from "./utils/redactWebhookUrl";
 
 export interface MsTeamsReporterOptions {
   webhookUrl?: string;
@@ -57,9 +58,12 @@ export default class MsTeamsReporter implements Reporter {
 
     console.log(`Using Microsoft Teams reporter`);
 
-    if (process.env.NODE_ENV === "development" || this.options.debug) {
-      console.log(`Using development mode`);
-      console.log(`Options: ${JSON.stringify(this.options, null, 2)}`);
+    if (this.options.debug) {
+      console.log(`Using debug mode`);
+      console.log(redactWebhookUrl(
+        `Options: ${JSON.stringify(this.options, null, 2)}`,
+        this.options.webhookUrl
+      ));
     }
   }
 
@@ -95,7 +99,7 @@ export default class MsTeamsReporter implements Reporter {
     }
 
     const text = chunk.toString("utf-8");
-    process.stdout.write(text);
+    process.stdout.write(redactWebhookUrl(text, this.options.webhookUrl));
   }
 
   onStdErr(chunk: string | Buffer, _: TestCase, __: TestResult) {
@@ -104,7 +108,7 @@ export default class MsTeamsReporter implements Reporter {
     }
 
     const text = chunk.toString("utf-8");
-    process.stderr.write(text);
+    process.stderr.write(redactWebhookUrl(text, this.options.webhookUrl));
   }
 
   async onEnd(_: FullResult) {
