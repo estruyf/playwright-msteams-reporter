@@ -61,10 +61,10 @@ describe("webhook logging privacy", () => {
   });
 
   it.each([false, true])("keeps diagnostics explicit when quiet=%s", (quiet) => {
-    new MsTeamsReporter({ quiet, debug: false });
+    new MsTeamsReporter({ webhookUrl: "", quiet, debug: false });
     expect(console.log).toHaveBeenCalledTimes(1);
     jest.mocked(console.log).mockClear();
-    const reporter = new MsTeamsReporter({ quiet, debug: true });
+    const reporter = new MsTeamsReporter({ webhookUrl: "", quiet, debug: true });
     expect(console.log).toHaveBeenCalledTimes(3);
     const stdout = jest.spyOn(process.stdout, "write").mockImplementation(() => true);
     reporter.onStdOut("ordinary output", undefined, undefined);

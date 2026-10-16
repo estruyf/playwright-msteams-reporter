@@ -73,7 +73,6 @@ export default defineConfig({
     [
       'playwright-msteams-reporter',
       <MsTeamsReporterOptions>{
-        webhookUrl: "<webhookUrl>",
         webhookType: "powerautomate", // or "msteams"
       }
     ]
@@ -83,13 +82,50 @@ export default defineConfig({
 
 > More information on how to use reporters can be found in the [Playwright documentation](https://playwright.dev/docs/test-reporters).
 
+Set `MSTEAMS_WEBHOOK_URL` through your shell or CI secret store. The reporter
+resolves it internally; do not put the secret value in the configuration above.
+
+> [!WARNING]
+> Playwright's JSON reporter serializes reporter configuration options. Writing
+> `webhookUrl: process.env.MSTEAMS_WEBHOOK_URL` in the config still publishes the
+> resolved secret when that JSON artifact is uploaded. Omit `webhookUrl` entirely
+> for environment-based configuration. The HTML reporter's embedded data is a
+> separate format; this warning concerns JSON-reporter output and pipelines that
+> publish it alongside other artifacts.
+
+### Webhook destination precedence
+
+- An explicit `webhookUrl` takes precedence over environment variables.
+- `webhookUrl: ""` disables delivery, even if the environment variable is set.
+- When `webhookUrl` is omitted or `undefined`, the reporter reads the variable
+  named by `webhookUrlEnv`, defaulting to `MSTEAMS_WEBHOOK_URL`, at construction.
+- A custom variable name replaces the default; an unset or empty selected
+  variable does not fall back to another variable and produces the existing
+  missing-webhook diagnostic when reporting is attempted.
+- Variable names must match `[A-Za-z_][A-Za-z0-9_]*`; invalid names are rejected
+  without echoing their contents, including when an explicit URL is supplied.
+
+For a custom secret variable, keep only its name in reporter options:
+
+```javascript
+reporter: [['playwright-msteams-reporter', {
+  webhookUrlEnv: 'ACME_TEAMS_WEBHOOK',
+  webhookType: 'powerautomate',
+}]]
+```
+
+An inherited `MSTEAMS_WEBHOOK_URL` enables delivery for an already registered
+reporter with an omitted destination. Use `webhookUrl: ""` or omit the reporter
+itself when sending is not intended. No reporter is registered automatically.
+
 ## Configuration
 
 The reporter supports the following configuration options:
 
 | Option                 | Description                                                     | Type                     | Required | Default                                        |
 | ---------------------- | --------------------------------------------------------------- | ------------------------ | -------- | ---------------------------------------------- |
-| `webhookUrl`           | The Microsoft Teams webhook URL                                 | `boolean`                | `true`   | `undefined`                                    |
+| `webhookUrl`           | Explicit destination; empty string disables environment fallback | `string`                 | `false`  | Selected environment variable                  |
+| `webhookUrlEnv`        | Name of the environment variable containing the destination      | `string`                 | `false`  | `MSTEAMS_WEBHOOK_URL`                           |
 | `webhookType`          | The type of the webhook (`msteams` or `powerautomate`)          | `string`                 | `false`  | `powerautomate`                                |
 | `title`                | The notification title                                          | `string`                 | `false`  | `Playwright Test Results`                      |
 | `linkToResultsUrl`     | Link to the test results                                        | `string \| () => string` | `false`  | `undefined`                                    |

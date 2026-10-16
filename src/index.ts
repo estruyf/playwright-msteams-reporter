@@ -9,9 +9,11 @@ import type {
 import { processResults } from "./processResults";
 import { WebhookType } from "./models";
 import { redactWebhookUrl } from "./utils/redactWebhookUrl";
+import { resolveWebhookUrl } from "./utils/resolveWebhookUrl";
 
 export interface MsTeamsReporterOptions {
   webhookUrl?: string;
+  webhookUrlEnv?: string;
   webhookType?: WebhookType;
   title?: string;
   linkToResultsUrl?: string | (() => string);
@@ -35,7 +37,7 @@ export default class MsTeamsReporter implements Reporter {
   private startTime: number | undefined;
   private gitAuthors: string[] | undefined;
 
-  constructor(private options: MsTeamsReporterOptions) {
+  constructor(private readonly options: MsTeamsReporterOptions = {}) {
     const defaultOptions: MsTeamsReporterOptions = {
       webhookUrl: undefined,
       webhookType: "powerautomate",
@@ -54,7 +56,11 @@ export default class MsTeamsReporter implements Reporter {
       mentionAuthors: false,
     };
 
-    this.options = { ...defaultOptions, ...options };
+    this.options = {
+      ...defaultOptions,
+      ...options,
+      webhookUrl: resolveWebhookUrl(options.webhookUrl, options.webhookUrlEnv),
+    };
 
     console.log(`Using Microsoft Teams reporter`);
 
@@ -78,7 +84,7 @@ export default class MsTeamsReporter implements Reporter {
       const authors: string[] = [];
       if (Array.isArray(config.metadata.git.commits)) {
         for (const commit of config.metadata.git.commits) {
-          if (commit.author && commit.author.email) {
+          if (commit.author?.email) {
             authors.push(commit.author.email);
           }
         }

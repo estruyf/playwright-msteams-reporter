@@ -10,50 +10,17 @@ import {
 } from "./utils";
 import { BaseAdaptiveCard, BaseTable } from "./constants";
 import { redactWebhookUrl } from "./utils/redactWebhookUrl";
+import type { AdaptiveCard, TestStatuses } from "./models";
 
-export const processResults = async (
-  suite: Suite | undefined,
+function buildResultsTable(
+  totalStatus: TestStatuses,
+  totalTests: number,
   options: MsTeamsReporterOptions,
-  durationMs?: number,
-  gitAuthors?: string[]
-) => {
-  if (!options.webhookUrl) {
-    console.error("No webhook URL provided");
-    return;
-  }
-
-  if (!suite) {
-    console.error("No test suite found");
-    return;
-  }
-
-  if (options.shouldRun && !options?.shouldRun(suite)) return;
-
-  const totalTests = suite.allTests().length;
-  if (!options.reportOnEmpty && totalTests === 0) {
-    if (!options.quiet) {
-      console.log("No tests found, skipping report (reportOnEmpty is false)");
-    }
-    return;
-  }
-
-  // Clone the base adaptive card and table
-  const adaptiveCard = structuredClone(BaseAdaptiveCard);
+  durationMs?: number
+) {
   const table = structuredClone(BaseTable);
-
-  const totalStatus = getTotalStatus(suite.suites);
-  const isSuccess = totalStatus.failed === 0;
-
-  if (isSuccess && !options.notifyOnSuccess) {
-    if (!options.quiet) {
-      console.log("No failed tests, skipping notification");
-    }
-    return;
-  }
-
-  table.rows.push(createTableRow("Type", "Total"));
-
   table.rows.push(
+    createTableRow("Type", "Total"),
     createTableRow(
       `${options.enableEmoji ? "✅ " : ""}Passed`,
       totalStatus.passed,
@@ -74,23 +41,18 @@ export const processResults = async (
       `${options.enableEmoji ? "❌ " : ""}Failed`,
       totalStatus.failed,
       { style: "attention" }
-    )
-  );
-  table.rows.push(
+    ),
     createTableRow(
       `${options.enableEmoji ? "⏭️ " : ""}Skipped`,
       totalStatus.skipped,
       { style: "accent" }
-    )
-  );
-  table.rows.push(
+    ),
     createTableRow("Total tests", totalTests, {
       isSubtle: true,
       weight: "Bolder",
     })
   );
 
-  // Add duration if enabled
   if (options.enableDuration && typeof durationMs === "number") {
     const seconds = Math.round(durationMs / 1000);
     const min = Math.floor(seconds / 60);
@@ -103,6 +65,99 @@ export const processResults = async (
       })
     );
   }
+  return table;
+}
+
+function addFailureMentions(
+  adaptiveCard: AdaptiveCard,
+  container: { items: any[] },
+  options: MsTeamsReporterOptions,
+  gitAuthors?: string[]
+) {
+  const mentionEmails = options.mentionAuthors && gitAuthors && gitAuthors.length > 0
+    ? gitAuthors.join(",")
+    : options.mentionOnFailure;
+  const mentionData = getMentions(mentionEmails, options.mentionOnFailureText);
+  if (!mentionData?.message || mentionData.mentions.length === 0) return;
+  container.items.push({
+    type: "TextBlock",
+    size: "Medium",
+    text: mentionData.message,
+    wrap: true,
+  });
+  adaptiveCard.msteams.entities = mentionData.mentions.map((mention) => ({
+    type: "mention",
+    text: `<at>${mention.email}</at>`,
+    mentioned: { id: mention.email, name: mention.name },
+  }));
+}
+
+function addResultsLink(
+  adaptiveCard: AdaptiveCard,
+  link: string | (() => string) | undefined,
+  title: string | undefined,
+  options: MsTeamsReporterOptions
+) {
+  if (!link) return;
+  const url = typeof link === "string" ? link : link.call(options);
+  if (url && typeof url === "string") {
+    adaptiveCard.actions.push({ type: "Action.OpenUrl", title, url });
+  }
+}
+
+function addReportLinks(adaptiveCard: AdaptiveCard, options: MsTeamsReporterOptions, isSuccess: boolean) {
+  addResultsLink(adaptiveCard, options.linkToResultsUrl, options.linkToResultsText, options);
+  if (!isSuccess && options.linkTextOnFailure && options.linkUrlOnFailure) {
+    addResultsLink(adaptiveCard, options.linkUrlOnFailure, options.linkTextOnFailure, options);
+  }
+}
+
+async function logWebhookResponse(response: Response, options: MsTeamsReporterOptions) {
+  if (!response.ok) {
+    console.error("Failed to send message");
+    console.error(redactWebhookUrl(await response.text(), options.webhookUrl));
+    return;
+  }
+  if (options.quiet) return;
+  console.log("Message sent successfully");
+  const responseText = await response.text();
+  if (responseText !== "1") {
+    console.log(redactWebhookUrl(responseText, options.webhookUrl));
+  }
+}
+
+function logSkippedReport(message: string, options: MsTeamsReporterOptions) {
+  if (!options.quiet) console.log(message);
+}
+
+export const processResults = async (
+  suite: Suite | undefined,
+  options: MsTeamsReporterOptions,
+  durationMs?: number,
+  gitAuthors?: string[]
+) => {
+  if (!options.webhookUrl) {
+    console.error("No webhook URL provided");
+    return;
+  }
+  if (!suite) {
+    console.error("No test suite found");
+    return;
+  }
+  if (options.shouldRun && !options.shouldRun(suite)) return;
+  const totalTests = suite.allTests().length;
+  if (!options.reportOnEmpty && totalTests === 0) {
+    logSkippedReport("No tests found, skipping report (reportOnEmpty is false)", options);
+    return;
+  }
+  const adaptiveCard = structuredClone(BaseAdaptiveCard);
+  const totalStatus = getTotalStatus(suite.suites);
+  const isSuccess = totalStatus.failed === 0;
+  if (isSuccess && !options.notifyOnSuccess) {
+    logSkippedReport("No failed tests, skipping notification", options);
+    return;
+  }
+  const table = buildResultsTable(totalStatus, totalTests, options, durationMs);
 
   const container = {
     type: "Container",
@@ -129,72 +184,14 @@ export const processResults = async (
     },
   };
 
-  // Check if we should ping on failure
-  let mentionEmails = options.mentionOnFailure;
-  if (options.mentionAuthors && gitAuthors && gitAuthors.length > 0) {
-    mentionEmails = gitAuthors.join(",");
-  }
   if (!isSuccess) {
-    const mentionData = getMentions(
-      mentionEmails,
-      options.mentionOnFailureText
-    );
-    if (mentionData?.message && mentionData.mentions.length > 0) {
-      container.items.push({
-        type: "TextBlock",
-        size: "Medium",
-        text: mentionData.message,
-        wrap: true,
-      });
-
-      adaptiveCard.msteams.entities = mentionData.mentions.map((mention) => ({
-        type: "mention",
-        text: `<at>${mention.email}</at>`,
-        mentioned: {
-          id: mention.email,
-          name: mention.name,
-        },
-      }));
-    }
+    addFailureMentions(adaptiveCard, container, options, gitAuthors);
   }
 
   // Add the container to the body
   adaptiveCard.body.push(container);
 
-  // Get the github actions run URL
-  if (options.linkToResultsUrl) {
-    let linkToResultsUrl: string;
-    if (typeof options.linkToResultsUrl === "string") {
-      linkToResultsUrl = options.linkToResultsUrl;
-    } else {
-      linkToResultsUrl = options.linkToResultsUrl();
-    }
-
-    if (linkToResultsUrl && typeof linkToResultsUrl === "string") {
-      adaptiveCard.actions.push({
-        type: "Action.OpenUrl",
-        title: options.linkToResultsText,
-        url: linkToResultsUrl,
-      });
-    }
-  }
-
-  if (!isSuccess && options.linkTextOnFailure && options.linkUrlOnFailure) {
-    let linkUrlOnFailure: string;
-    if (typeof options.linkUrlOnFailure === "string") {
-      linkUrlOnFailure = options.linkUrlOnFailure;
-    } else {
-      linkUrlOnFailure = options.linkUrlOnFailure();
-    }
-
-    if (linkUrlOnFailure && typeof linkUrlOnFailure === "string") {
-      adaptiveCard.actions.push({
-        type: "Action.OpenUrl",
-        title: options.linkTextOnFailure,
-        url: linkUrlOnFailure,
-      });
-    }
-  }
+  addReportLinks(adaptiveCard, options, isSuccess);
 
   if (options.webhookType === "powerautomate") {
     adaptiveCard.version = "1.4";
@@ -224,16 +221,5 @@ export const processResults = async (
     body,
   });
 
-  if (response.ok) {
-    if (!options.quiet) {
-      console.log("Message sent successfully");
-      const responseText = await response.text();
-      if (responseText !== "1") {
-        console.log(redactWebhookUrl(responseText, options.webhookUrl));
-      }
-    }
-  } else {
-    console.error("Failed to send message");
-    console.error(redactWebhookUrl(await response.text(), options.webhookUrl));
-  }
+  await logWebhookResponse(response, options);
 };
