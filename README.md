@@ -126,6 +126,7 @@ The reporter supports the following configuration options:
 | ---------------------- | --------------------------------------------------------------- | ------------------------ | -------- | ---------------------------------------------- |
 | `webhookUrl`           | Explicit destination; empty string disables environment fallback | `string`                 | `false`  | Selected environment variable                  |
 | `webhookUrlEnv`        | Name of the environment variable containing the destination      | `string`                 | `false`  | `MSTEAMS_WEBHOOK_URL`                           |
+| `webhookTimeoutMs`     | Deadline in milliseconds for request and response body           | `number`                 | `false`  | `10000`                                        |
 | `webhookType`          | The type of the webhook (`msteams` or `powerautomate`)          | `string`                 | `false`  | `powerautomate`                                |
 | `title`                | The notification title                                          | `string`                 | `false`  | `Playwright Test Results`                      |
 | `linkToResultsUrl`     | Link to the test results                                        | `string \| () => string` | `false`  | `undefined`                                    |
@@ -142,6 +143,29 @@ The reporter supports the following configuration options:
 | `reportOnEmpty`        | Prevents sending a report when no tests are run                 | `boolean`                | `false`  | `false`                                        |
 | `enableDuration`       | Show the test run duration                                      | `boolean`                | `false`  | `false`                                        |
 | `mentionAuthors`       | Use git metadata to mention authors of the commit or PR         | `boolean`                | `false`  | `false`                                        |
+
+### Delivery timeout and failures
+
+Each notification has a `webhookTimeoutMs` deadline covering the HTTP request
+and response-body consumption. The default is `10000` milliseconds when omitted
+or `undefined`. Values must be integers from `1` through `2147483647`; zero,
+negative, fractional, non-finite, and out-of-range values are configuration errors.
+There is no unbounded or zero-disables-timeout mode.
+
+Request failures, timeouts, and response-body failures produce one redacted error
+diagnostic and settle without changing test outcomes. Non-success HTTP responses
+produce a failure message and redacted response text. Diagnostic details are
+limited to 1000 characters after redaction. No delivery retries are made, avoiding
+duplicate notifications when an endpoint accepted a message before failing.
+
+Response bodies are consumed within the deadline even with `quiet: true`, but
+success output stays suppressed. A success message is logged only after the body
+is read successfully. Invalid configuration and errors in `shouldRun` or result-link
+callbacks are not swallowed by transport handling.
+
+Playwright awaits reporters in configuration order. A timed-out delivery settles
+before the next reporter begins; each delivery has its own deadline. Ordered HTTP
+submission does not guarantee Teams or Power Automate display order.
 
 ### Logging and privacy
 

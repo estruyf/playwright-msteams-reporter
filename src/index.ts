@@ -10,10 +10,12 @@ import { processResults } from "./processResults";
 import { WebhookType } from "./models";
 import { redactWebhookUrl } from "./utils/redactWebhookUrl";
 import { resolveWebhookUrl } from "./utils/resolveWebhookUrl";
+import { resolveWebhookTimeout } from "./utils/resolveWebhookTimeout";
 
 export interface MsTeamsReporterOptions {
   webhookUrl?: string;
   webhookUrlEnv?: string;
+  webhookTimeoutMs?: number;
   webhookType?: WebhookType;
   title?: string;
   linkToResultsUrl?: string | (() => string);
@@ -60,6 +62,7 @@ export default class MsTeamsReporter implements Reporter {
       ...defaultOptions,
       ...options,
       webhookUrl: resolveWebhookUrl(options.webhookUrl, options.webhookUrlEnv),
+      webhookTimeoutMs: resolveWebhookTimeout(options.webhookTimeoutMs),
     };
 
     console.log(`Using Microsoft Teams reporter`);

@@ -11,6 +11,8 @@ import {
 import { BaseAdaptiveCard, BaseTable } from "./constants";
 import { redactWebhookUrl } from "./utils/redactWebhookUrl";
 import type { AdaptiveCard, TestStatuses } from "./models";
+import { resolveWebhookTimeout } from "./utils/resolveWebhookTimeout";
+import { sendWebhookMessage } from "./utils/sendWebhookMessage";
 
 function buildResultsTable(
   totalStatus: TestStatuses,
@@ -112,20 +114,6 @@ function addReportLinks(adaptiveCard: AdaptiveCard, options: MsTeamsReporterOpti
   }
 }
 
-async function logWebhookResponse(response: Response, options: MsTeamsReporterOptions) {
-  if (!response.ok) {
-    console.error("Failed to send message");
-    console.error(redactWebhookUrl(await response.text(), options.webhookUrl));
-    return;
-  }
-  if (options.quiet) return;
-  console.log("Message sent successfully");
-  const responseText = await response.text();
-  if (responseText !== "1") {
-    console.log(redactWebhookUrl(responseText, options.webhookUrl));
-  }
-}
-
 function logSkippedReport(message: string, options: MsTeamsReporterOptions) {
   if (!options.quiet) console.log(message);
 }
@@ -136,6 +124,7 @@ export const processResults = async (
   durationMs?: number,
   gitAuthors?: string[]
 ) => {
+  resolveWebhookTimeout(options.webhookTimeoutMs);
   if (!options.webhookUrl) {
     console.error("No webhook URL provided");
     return;
@@ -213,13 +202,5 @@ export const processResults = async (
     console.log(redactWebhookUrl(body, options.webhookUrl));
   }
 
-  const response = await fetch(options.webhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body,
-  });
-
-  await logWebhookResponse(response, options);
+  await sendWebhookMessage(options.webhookUrl, body, options);
 };
