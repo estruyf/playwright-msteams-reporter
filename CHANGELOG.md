@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Resolve omitted or explicitly `undefined` webhook destinations from `MSTEAMS_WEBHOOK_URL` or a custom `webhookUrlEnv` without modifying reporter configuration; an explicit empty URL disables delivery. Config expressions evaluating to `undefined` now use this fallback.
 - Redact configured webhook URLs and their canonical URL forms from reporter logs without changing delivery.
 - Require `debug: true` for diagnostic dumps; `NODE_ENV=development` alone no longer enables them.
+- Add an optional `dist/healthCapture` fixture helper for bounded, sanitized browser evidence and consumer-owned environment-signal policies; existing reporters and fixture exports remain unchanged.
 
 ## [0.0.13]
 
