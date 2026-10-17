@@ -144,6 +144,94 @@ The reporter supports the following configuration options:
 | `enableDuration`       | Show the test run duration                                      | `boolean`                | `false`  | `false`                                        |
 | `mentionAuthors`       | Use git metadata to mention authors of the commit or PR         | `boolean`                | `false`  | `false`                                        |
 
+### Optional Test Run Health Report
+
+The independent health reporter is available at the `playwright-msteams-reporter/dist/healthReporter`
+subpath. Register it after the original reporter so its webhook request follows
+the original summary:
+
+```javascript
+reporter: [
+  ["playwright-msteams-reporter", { webhookType: "powerautomate" }],
+  ["playwright-msteams-reporter/dist/healthReporter", {
+    webhookType: "powerautomate",
+    webhookUrlEnv: "MSTEAMS_WEBHOOK_URL",
+  }],
+]
+```
+
+The second reporter sends a health card only when there are failures, actionable
+signal evidence, runner errors, or an explicitly enabled empty-run report. A
+clean signal-free run produces no follow-up. Its notification gates are
+independent of the original reporter. Submission order is sequential; the
+receiving service may still display messages in a different order.
+
+Signals are consumer-provided Playwright annotations using the
+`env-signal:<kind>` prefix by default. The reporter does not capture browser or
+network activity. `TestResult.annotations` requires Playwright 1.52 or later;
+older versions show evidence as unavailable and do not infer a cause. Signal
+capture helpers and package compatibility guidance are tracked separately.
+
+Health reporter options:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | Set `false` to disable this reporter. |
+| `annotationPrefix` | `env-signal:` | Annotation prefix; the non-empty prefix is removed before category matching. |
+| `categories` | Built-in categories | Replaces, rather than merges with, the built-in taxonomy. `[]` disables all known-kind mappings; signals still count in `Other signals`. |
+| `title` / `environment` | `Test Run Health` / none | Card title and optional environment label. |
+| `maxTests` | `5` | Maximum failed-test detail groups (`0` to `100`); aggregate counts are not capped. |
+| `maxPayloadBytes` | `26000` | Complete serialized envelope limit (`4096` to `26000` UTF-8 bytes). Details are omitted deterministically before counts are changed. |
+| `testLabel` | Test title path | Optional function mapping a test to its displayed label. Invalid/throwing labels fall back to the title path. |
+| `sanitizeText` | Built-in sanitizer | Optional function applied after built-in sanitization and before output clipping. It receives the complete text for a detail, including newlines; its output is sanitized again. Throwing or non-string results omit that detail. |
+| `resultsLinkPolicy` | `strip-query` | `strip-query` removes query and fragment; `preserve` intentionally retains them. |
+| `notifyOnSuccess` | `true` | `false` suppresses passing runs, including signal-only all-pass runs. It does not suppress failed runs or runner errors. |
+| `reportOnEmpty` | `false` | Allows a card for an empty run; runner errors are reported even when no suite began. |
+| `shouldRun` | always | Optional suite predicate. A false result suppresses this health card only. |
+| `quiet` / `debug` | `false` / `false` | `quiet` suppresses the one-line health summary; `debug` logs the card after sanitization. Neither forwards test stdout/stderr. |
+| `webhookUrl`, `webhookUrlEnv`, `webhookTimeoutMs`, `webhookType` | Same as the original reporter | Destination precedence, timeout validation, and Power Automate/Teams delivery are shared with the original reporter. |
+
+Categories are ordered; the first category with a matching kind pattern wins.
+Patterns match the entire kind, case-sensitively. `*` is the only wildcard;
+other characters are literal. Category names must be unique, and `Other signals`
+is reserved. A noise category cannot also specify an assessment. Custom
+categories replace the defaults. For example:
+
+```javascript
+categories: [
+  { name: "Service availability", kinds: ["http-5xx", "net-fail"], assessment: "environment" },
+  { name: "Known background noise", kinds: ["sso-ambient-*"], noise: true },
+]
+```
+
+Built-in kinds are `sso-*`, `http-auth`, `auth-*`, `http-5xx`, `net-fail`,
+`test-timeout`, `page-error`, and `console-error`. Authentication/backend kinds
+are labeled **environment-suspect**, not proven causes. Timeouts and application
+errors are undetermined by default. A failure with both assessed and undetermined
+signals is mixed; no evidence, unknown-only evidence, and unsupported annotations
+remain undetermined. Noise is context, never a failure cause.
+
+Failure assessments use exactly the tests whose Playwright `outcome()` is
+`unexpected`; these four assessments partition that failed-test count. Category
+and kind counts are evidence counts and may overlap across categories, but a test
+counts once within each category/kind. Signals from superseded retry attempts are
+shown separately and do not change final-failure assessments. A recovered flaky
+test is counted as recovered, not as an expected pass.
+
+The default category assessments are best-effort heuristics, not proof of root
+cause. Authentication and backend/network observations are environment-suspect;
+timeouts, application errors, unknown signals, missing evidence, and conflicting
+assessments remain undetermined or mixed. Consumers can supply ordered categories
+to change the assessment policy or mark known ambient signals as noise. Do not
+classify a signal as noise unless that policy is appropriate for the application.
+
+Text and assertion details are sanitized and bounded, but the renderer cannot
+guarantee removal of arbitrary application-specific secrets or personal data.
+Consumers should provide `sanitizeText` for domain-specific secrets and should
+not use `resultsLinkPolicy: "preserve"` for signed URLs unless sharing them in the
+card is intended. The card payload is bounded to at most 26,000 UTF-8 bytes;
+detail rows may be omitted while aggregate counts remain complete.
+
 ### Delivery timeout and failures
 
 Each notification has a `webhookTimeoutMs` deadline covering the HTTP request
