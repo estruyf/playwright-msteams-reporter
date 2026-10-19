@@ -1,4 +1,5 @@
 export * from "./createTableRow";
+export * from "./getLinkUrl";
 export * from "./getMentions";
 export * from "./getNotificationBackground";
 export * from "./getNotificationColor";

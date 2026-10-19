@@ -537,6 +537,96 @@ describe("processResults", () => {
     consoleLogSpy.mockReset();
   });
 
+  it("should use the default failure link text", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, text: () => "1" });
+    global.fetch = fetchMock;
+    const options: MsTeamsReporterOptions = {
+      ...DEFAULT_OPTIONS,
+      webhookUrl: FLOW_WEBHOOK_URL,
+      webhookType: "powerautomate",
+      linkUrlOnFailure: "https://failure.example.com",
+      quiet: true,
+    };
+    await processResults(SUITE_MOCK_FAILED as any, options);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.attachments[0].content.actions).toEqual([
+      {
+        type: "Action.OpenUrl",
+        title: "View failed tests",
+        url: "https://failure.example.com",
+      },
+    ]);
+  });
+
+  it("should include the additional links", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, text: () => "1" });
+    global.fetch = fetchMock;
+    const options: MsTeamsReporterOptions = {
+      ...DEFAULT_OPTIONS,
+      webhookUrl: FLOW_WEBHOOK_URL,
+      webhookType: "powerautomate",
+      linkToResultsUrl: "https://results.example.com",
+      links: [
+        { text: "See test run", url: "https://run.example.com" },
+        { text: "See test report", url: () => "https://report.example.com" },
+      ],
+      quiet: true,
+    };
+    await processResults(SUITE_MOCK_PASSED as any, options);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.attachments[0].content.actions).toEqual([
+      {
+        type: "Action.OpenUrl",
+        title: "View test results",
+        url: "https://results.example.com",
+      },
+      {
+        type: "Action.OpenUrl",
+        title: "See test run",
+        url: "https://run.example.com",
+      },
+      {
+        type: "Action.OpenUrl",
+        title: "See test report",
+        url: "https://report.example.com",
+      },
+    ]);
+  });
+
+  it("should skip additional links without text or a valid URL", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, text: () => "1" });
+    global.fetch = fetchMock;
+    const options: MsTeamsReporterOptions = {
+      ...DEFAULT_OPTIONS,
+      webhookUrl: FLOW_WEBHOOK_URL,
+      webhookType: "powerautomate",
+      links: [
+        { text: "", url: "https://run.example.com" },
+        { text: "No URL", url: (): any => undefined },
+        { text: "See test report", url: "https://report.example.com" },
+      ],
+      quiet: true,
+    };
+    await processResults(SUITE_MOCK_PASSED as any, options);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.attachments[0].content.actions).toEqual([
+      {
+        type: "Action.OpenUrl",
+        title: "See test report",
+        url: "https://report.example.com",
+      },
+    ]);
+  });
+
   it("should show debug message", async () => {
     const consoleLogSpy = jest.spyOn(console, "log").mockImplementation();
     const fetchMock = jest

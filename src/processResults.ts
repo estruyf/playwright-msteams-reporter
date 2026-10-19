@@ -2,6 +2,7 @@ import { Suite } from "@playwright/test/reporter";
 import { MsTeamsReporterOptions } from ".";
 import {
   createTableRow,
+  getLinkUrl,
   getMentions,
   getNotificationBackground,
   getNotificationColor,
@@ -161,35 +162,33 @@ export const processResults = async (
   adaptiveCard.body.push(container);
 
   // Get the github actions run URL
-  if (options.linkToResultsUrl) {
-    let linkToResultsUrl: string;
-    if (typeof options.linkToResultsUrl === "string") {
-      linkToResultsUrl = options.linkToResultsUrl;
-    } else {
-      linkToResultsUrl = options.linkToResultsUrl();
-    }
+  const linkToResultsUrl = getLinkUrl(options.linkToResultsUrl);
+  if (linkToResultsUrl) {
+    adaptiveCard.actions.push({
+      type: "Action.OpenUrl",
+      title: options.linkToResultsText,
+      url: linkToResultsUrl,
+    });
+  }
 
-    if (linkToResultsUrl && typeof linkToResultsUrl === "string") {
+  // Add the additional links
+  for (const link of options.links || []) {
+    const linkUrl = getLinkUrl(link?.url);
+    if (link?.text && linkUrl) {
       adaptiveCard.actions.push({
         type: "Action.OpenUrl",
-        title: options.linkToResultsText,
-        url: linkToResultsUrl,
+        title: link.text,
+        url: linkUrl,
       });
     }
   }
 
-  if (!isSuccess && options.linkTextOnFailure && options.linkUrlOnFailure) {
-    let linkUrlOnFailure: string;
-    if (typeof options.linkUrlOnFailure === "string") {
-      linkUrlOnFailure = options.linkUrlOnFailure;
-    } else {
-      linkUrlOnFailure = options.linkUrlOnFailure();
-    }
-
-    if (linkUrlOnFailure && typeof linkUrlOnFailure === "string") {
+  if (!isSuccess) {
+    const linkUrlOnFailure = getLinkUrl(options.linkUrlOnFailure);
+    if (linkUrlOnFailure) {
       adaptiveCard.actions.push({
         type: "Action.OpenUrl",
-        title: options.linkTextOnFailure,
+        title: options.linkTextOnFailure || "View failed tests",
         url: linkUrlOnFailure,
       });
     }
